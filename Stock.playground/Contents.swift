@@ -5,7 +5,7 @@ struct StockGrant
 {
     struct GrantDate
     {
-        private let date: NSDate
+        private(set) var foundationDate: NSDate
 
         init (month: Int, day: Int, year: Int)
         {
@@ -14,12 +14,7 @@ struct StockGrant
             signing.month = month
             signing.day = day
             signing.year = year
-            self.date = signing.date!
-        }
-
-        func foundationDate() -> NSDate
-        {
-            return self.date
+            self.foundationDate = signing.date!
         }
     }
 
@@ -53,9 +48,9 @@ struct StockGrant
 
     func valueAfter(months: Int, atPrice: Double) -> Double
     {
-        if months < Int(self.cliffMonths) { return 0 }
-        if months > Int(self.endMonths) { return self.valueAfter(Int(self.endMonths), atPrice: atPrice) }
-        if atPrice <= self.strikePrice { return 0 }
+        guard months >= Int(self.cliffMonths) else { return 0 }
+        guard months <= Int(self.endMonths) else { return self.valueAfter(Int(self.endMonths), atPrice: atPrice) }
+        guard atPrice > self.strikePrice else { return 0 }
 
         let shareValue = atPrice - self.strikePrice
         let sharesAccrued = floor(Double(months) / Double(self.endMonths) * Double(self.shares))
@@ -64,8 +59,8 @@ struct StockGrant
 
     func monthsSince(date: GrantDate) -> Int
     {
-        let futureDate = date.foundationDate()
-        let grantDate = self.grantDate.foundationDate()
+        let futureDate = date.foundationDate
+        let grantDate = self.grantDate.foundationDate
 
         let dateComponents = NSCalendar.currentCalendar().components(NSCalendarUnit.Month, fromDate: grantDate, toDate: futureDate, options: NSCalendarOptions(rawValue: 0))
         return dateComponents.month
@@ -96,17 +91,28 @@ struct StockGrant
 let signing = StockGrant.GrantDate(month: 1, day: 1, year: 2016)
 let signingGrant = StockGrant(shares: 20000, grantDate: signing, cliffMonths: 12, endMonths: 48, strikePrice: 1.22)
 
-signingGrant.valueAfter(24, atPrice: 22)
-
+// Two years at $22 (using months or StockGrant.GrantDate)
 let twoYears = StockGrant.GrantDate(month: 1, day: 1, year: 2018)
 signingGrant.valueBy(twoYears, atPrice: 22)
+signingGrant.valueAfter(24, atPrice: 22)
 
+// Strike price higher than hypothetical price
+signingGrant.valueBy(twoYears, atPrice: 0.22)
+
+// Vesting cliff not yet hit
+let sixMonths = StockGrant.GrantDate(month: 6, day: 1, year: 2016)
+signingGrant.valueBy(sixMonths, atPrice: 2.00)
+
+// Vesting schedule completed
+let fiveYears = StockGrant.GrantDate(month: 1, day: 1, year: 2021)
+signingGrant.valueBy(fiveYears, atPrice: 2.00)
+
+// Currying (date)
 let twoYearsCurried = signingGrant.curriedValueBy(twoYears)
 twoYearsCurried(11)
 twoYearsCurried(22)
 
-let fourYears = StockGrant.GrantDate(month: 1, day: 1, year: 2020)
+// Currying (price)
 let twentyTwoPriceCurried = signingGrant.curriedValueAt(22)
 twentyTwoPriceCurried(twoYears)
-twentyTwoPriceCurried(fourYears)
-
+twentyTwoPriceCurried(fiveYears)
