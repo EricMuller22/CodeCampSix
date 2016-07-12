@@ -3,41 +3,14 @@ import Foundation
 
 struct StockGrant
 {
-    struct GrantDate
-    {
-        private(set) var foundationDate: NSDate
-
-        init (month: Int, day: Int, year: Int)
-        {
-            let signing = NSDateComponents.init()
-            signing.calendar = NSCalendar.currentCalendar()
-            signing.month = month
-            signing.day = day
-            signing.year = year
-            self.foundationDate = signing.date!
-        }
-    }
-
-
     let shares: UInt
     let strikePrice: Double
-    let grantDate: GrantDate
+    let grantDate: Date
     let cliffMonths: UInt
     let endMonths: UInt
 
-
-    // RSUs
-    init(shares: UInt, grantDate: GrantDate, cliffMonths: UInt, endMonths: UInt)
-    {
-        self.strikePrice = 0
-        self.shares = shares
-        self.grantDate = grantDate
-        self.cliffMonths = cliffMonths
-        self.endMonths = endMonths
-    }
-
-    // NSOs
-    init (shares: UInt, grantDate: GrantDate, cliffMonths: UInt, endMonths: UInt, strikePrice: Double)
+    // RSU grants will use default value for strikePrice, NSO grants will set a strike price.
+    init(shares: UInt, grantDate: Date, cliffMonths: UInt, endMonths: UInt, strikePrice: Double = 0)
     {
         self.strikePrice = strikePrice
         self.shares = shares
@@ -46,73 +19,131 @@ struct StockGrant
         self.endMonths = endMonths
     }
 
-    func valueAfter(months: Int, atPrice: Double) -> Double
+    // Bonus grants: vest instantly
+    init(shares: UInt, grantDate: Date, strikePrice: Double = 0)
     {
-        guard months >= Int(self.cliffMonths) else { return 0 }
-        guard months <= Int(self.endMonths) else { return self.valueAfter(Int(self.endMonths), atPrice: atPrice) }
-        guard atPrice > self.strikePrice else { return 0 }
-
-        let shareValue = atPrice - self.strikePrice
-        let sharesAccrued = floor(Double(months) / Double(self.endMonths) * Double(self.shares))
-        return shareValue * sharesAccrued
+        self.shares = shares
+        self.strikePrice = strikePrice
+        self.grantDate = grantDate
+        cliffMonths = 0
+        endMonths = 0
     }
 
-    func monthsSince(date: GrantDate) -> Int
+    func valueAt(_ price: Double, monthsElapsed months: UInt) -> Double
     {
-        let futureDate = date.foundationDate
-        let grantDate = self.grantDate.foundationDate
+        guard months >= cliffMonths else { return 0 }
+        guard months <= endMonths else { return valueAt(price, sharesAccrued: Double(shares)) }
+        guard price > strikePrice else { return 0 }
 
-        let dateComponents = NSCalendar.currentCalendar().components(NSCalendarUnit.Month, fromDate: grantDate, toDate: futureDate, options: NSCalendarOptions(rawValue: 0))
-        return dateComponents.month
+        let percentageAccrued = Double(months) / Double(endMonths)
+        let sharesAccrued = floor(percentageAccrued * Double(shares))
+        return valueAt(price, sharesAccrued: sharesAccrued)
     }
 
-    func valueBy(date: GrantDate, atPrice: Double) -> Double
+    func valueAt(_ price: Double, date: Date) -> Double
     {
-        return self.valueAfter(self.monthsSince(date), atPrice: atPrice)
+        let monthsElapsed = date.monthsSince(grantDate)
+        if (monthsElapsed < 0) { return 0 }
+        return valueAt(price, monthsElapsed: UInt(monthsElapsed))
     }
 
-    func valuesBy(dates: [GrantDate], atPrice: Double) -> [Double]
+    private func valueAt(_ price: Double, sharesAccrued: Double) -> Double
     {
-        return dates.map({ self.valueBy($0, atPrice: atPrice) })
-    }
-
-    func curriedValueBy(date: GrantDate) -> (Double) -> Double
-    {
-        return { price in return self.valueAfter(self.monthsSince(date), atPrice: price) }
-    }
-
-    func curriedValueAt(price: Double) -> (GrantDate) -> Double
-    {
-        return { date in return self.valueAfter(self.monthsSince(date), atPrice: price) }
+        let shareValue = price - strikePrice
+        let value = max(0, shareValue)
+        let shareCount = max(0, min(Double(shares), sharesAccrued))
+        return value * shareCount
     }
 }
 
 
-let signing = StockGrant.GrantDate(month: 1, day: 1, year: 2016)
+extension Date
+{
+    static func grantDate(month: Int, day: Int, year: Int) -> Date
+    {
+        let signing = NSDateComponents.init()
+        signing.calendar = Calendar.grantDateCalendar()
+        signing.month = month
+        signing.day = day
+        signing.year = year
+        return signing.date!
+    }
+
+    func monthsSince(_ date: Date) -> Int
+    {
+        let dateComponents = Calendar.grantDateCalendar().components(.month, from: date, to: self)
+        return dateComponents.month!
+    }
+
+    func after(months: Int) -> Date
+    {
+        return after(months, unit: .month)
+    }
+
+    func after(years: Int) -> Date
+    {
+        return after(years, unit: .year)
+    }
+
+    private func after(_ amount: Int, unit: Calendar.Unit) -> Date
+    {
+        return Calendar.grantDateCalendar().date(byAdding: unit, value: amount, to: self)!
+    }
+}
+
+
+extension Calendar
+{
+    static func grantDateCalendar() -> Calendar
+    {
+        return Calendar(calendarIdentifier: .gregorian)!
+    }
+}
+
+
+let signing = Date.grantDate(month: 1, day: 1, year: 2016)
 let signingGrant = StockGrant(shares: 20000, grantDate: signing, cliffMonths: 12, endMonths: 48, strikePrice: 1.22)
 
-// Two years at $22 (using months or StockGrant.GrantDate)
-let twoYears = StockGrant.GrantDate(month: 1, day: 1, year: 2018)
-signingGrant.valueBy(twoYears, atPrice: 22)
-signingGrant.valueAfter(24, atPrice: 22)
+let twoYears = signing.after(years: 2)
+let fourYears = signing.after(years: 4)
 
-// Strike price higher than hypothetical price
-signingGrant.valueBy(twoYears, atPrice: 0.22)
+// Before cliff: should be zero
+signingGrant.valueAt(22, monthsElapsed: signingGrant.cliffMonths - 1)
 
-// Vesting cliff not yet hit
-let sixMonths = StockGrant.GrantDate(month: 6, day: 1, year: 2016)
-signingGrant.valueBy(sixMonths, atPrice: 2.00)
+// Zero months elapsed: should be zero
+assert(signingGrant.cliffMonths > 0)
+signingGrant.valueAt(22, monthsElapsed: 0)
 
-// Vesting schedule completed
-let fiveYears = StockGrant.GrantDate(month: 1, day: 1, year: 2021)
-signingGrant.valueBy(fiveYears, atPrice: 2.00)
+// Negative years (invalid): should be zero
+let negativeYears = signing.after(years: -1)
+signingGrant.valueAt(22, date: negativeYears)
 
-// Currying (date)
-let twoYearsCurried = signingGrant.curriedValueBy(twoYears)
-twoYearsCurried(11)
-twoYearsCurried(22)
+// Progression up to end date:
+signingGrant.valueAt(22, monthsElapsed: 24)
+signingGrant.valueAt(22, date: twoYears)
+signingGrant.valueAt(22, monthsElapsed: 48)
+signingGrant.valueAt(22, date: fourYears)
 
-// Currying (price)
-let twentyTwoPriceCurried = signingGrant.curriedValueAt(22)
-twentyTwoPriceCurried(twoYears)
-twentyTwoPriceCurried(fiveYears)
+// After end date: should be equal to end date value
+signingGrant.valueAt(22, monthsElapsed: signingGrant.endMonths)
+signingGrant.valueAt(22, monthsElapsed: signingGrant.endMonths + 1)
+signingGrant.valueAt(22, date: signingGrant.grantDate.after(months: Int(signingGrant.endMonths)))
+signingGrant.valueAt(22, date: signingGrant.grantDate.after(months: Int(signingGrant.endMonths + 1)))
+
+let rsuGrant = StockGrant(shares: 10000, grantDate: twoYears, cliffMonths: 12, endMonths: 48)
+rsuGrant.valueAt(22, monthsElapsed:rsuGrant.cliffMonths - 1)
+rsuGrant.valueAt(22, monthsElapsed:rsuGrant.cliffMonths)
+rsuGrant.valueAt(11, monthsElapsed:rsuGrant.endMonths)
+rsuGrant.valueAt(22, monthsElapsed:rsuGrant.endMonths)
+rsuGrant.valueAt(22, monthsElapsed:rsuGrant.endMonths + 1)
+
+let bonusGrant = StockGrant(shares: 2000, grantDate: fourYears)
+bonusGrant.valueAt(22, date: bonusGrant.grantDate.after(months: -1))
+bonusGrant.valueAt(11, monthsElapsed: 0)
+bonusGrant.valueAt(22, monthsElapsed: 0)
+bonusGrant.valueAt(22, monthsElapsed: 20)
+
+// Poke at private implementation details a bit:
+signingGrant.valueAt(-1, sharesAccrued: 100)
+signingGrant.valueAt(22, sharesAccrued: -1)
+signingGrant.valueAt(22, sharesAccrued: Double(signingGrant.shares + 1))

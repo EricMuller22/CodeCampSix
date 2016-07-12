@@ -1,9 +1,9 @@
+import PlaygroundSupport
 import UIKit
-import XCPlayground
 
 
 let image = UIImage(named: "spinner")!
-let spinner = UIImageView.init(frame: CGRect(origin: CGPointZero, size: image.size))
+let spinner = UIImageView.init(frame: CGRect(origin: CGPoint.zero, size: image.size))
 spinner.image = image
 
 let view = UIView.init(frame: CGRect(x: 0, y: 0, width: 400, height: 400))
@@ -18,6 +18,6 @@ spin.duration = 1.0
 spin.fromValue = 0
 spin.toValue = 2 * M_PI
 spin.repeatCount = 10
-spinner.layer.addAnimation(spin, forKey: spin.keyPath)
+spinner.layer.add(spin, forKey: spin.keyPath)
 
-XCPlaygroundPage.currentPage.liveView = view
+PlaygroundPage.current.liveView = view
