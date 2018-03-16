@@ -9,20 +9,22 @@ import Foundation
 let runGatsby = true
 
 if (runGatsby) {
-    let gatsbyFile = Bundle.main.urlForResource("gatsby", withExtension: "txt")!
+    let gatsbyFile = Bundle.main.url(forResource: "gatsby", withExtension: "txt")!
     let gatsbyText = try String(contentsOf: gatsbyFile)
     let gatsbyCounter = WordCounter(text: gatsbyText)
     gatsbyCounter.uniqueWords
     gatsbyCounter.wordCount(for: "Daisy")
     gatsbyCounter.nthMostFrequentWord(1)
 
-    let topWords = gatsbyCounter.topFilteredWords(100, filter: {(word: String)->Bool in return true })
+    let topWords = gatsbyCounter.topFilteredWords(100)
     topWords
 
     let colors: Set = ["red", "orange", "blue", "green", "yellow", "indigo", "violet", "black", "white", "gold"]
     let topColors = gatsbyCounter.topFilteredWords(7, filter: {(word: String)->Bool in
         return colors.contains(word)
     })
+    topColors
+
 } else {
     let testString = "Then wear the gold hat, if that will move her;\n" +
     "If you can bounce high, bounce for her too,\n" +
