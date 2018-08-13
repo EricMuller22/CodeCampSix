@@ -10,18 +10,19 @@ public struct StockGrant
 
     public enum VestingSchedule
     {
-        case Instant
-        case Monthly(cliff: Time, end: Time)
+        case instant
+        case monthly(cliff: Time, end: Time)
 
         var cliffMonths: UInt {
-            if case Monthly(let cliff, _) = self {
+            if case .monthly(let cliff, _) = self {
                 return cliff.months
             }
+
             return 0
         }
 
         var endMonths: UInt {
-            if case Monthly(_, let end) = self {
+            if case .monthly(_, let end) = self {
                 return end.months
             }
             return 0
@@ -52,7 +53,7 @@ public struct StockGrant
 
     // RSU grants will use default value for strikePrice (0).
     // NSO grants will set a strike price.
-    public init(shares: UInt, grantDate: Date, vestingSchedule: VestingSchedule = .Monthly(cliff: .year(1), end: .year(4)), strikePrice: Double = 0)
+    public init(shares: UInt, grantDate: Date, vestingSchedule: VestingSchedule = .monthly(cliff: .year(1), end: .year(4)), strikePrice: Double = 0)
     {
         self.strikePrice = strikePrice
         self.shares = shares
@@ -64,7 +65,7 @@ public struct StockGrant
 
     public func value(at price: Money, after time: Time) -> Money
     {
-        if case .Instant = vestingSchedule { return value(at: price, sharesAccrued: shares) }
+        if case .instant = vestingSchedule { return value(at: price, sharesAccrued: shares) }
 
         guard time.months >= vestingSchedule.cliffMonths else { return 0 }
         guard price > strikePrice else { return 0 }
@@ -97,7 +98,7 @@ extension Date
 {
     public static func grantDate(month: Int, day: Int, year: Int) -> Date
     {
-        let components = DateComponents(calendar: Calendar.grantDateCalendar(), month: month, day: day, year: year)
+        let components = DateComponents(calendar: Calendar.grantDateCalendar(), year: year, month: month, day: day)
         return components.date!
     }
 
@@ -110,7 +111,7 @@ extension Date
 
     func monthsSince(_ date: Date) -> Int
     {
-        let components = Calendar.grantDateCalendar().components(.month, from: date, to: self)
+        let components = Calendar.grantDateCalendar().dateComponents([.month], from: date, to: self)
         return components.month!
     }
 }
@@ -120,6 +121,6 @@ extension Calendar
 {
     static func grantDateCalendar() -> Calendar
     {
-        return Calendar(calendarIdentifier: .gregorian)!
+        return Calendar(identifier: .gregorian)
     }
 }

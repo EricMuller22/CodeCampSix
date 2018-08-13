@@ -19,11 +19,16 @@ if (runGatsby) {
     let topWords = gatsbyCounter.topFilteredWords(100)
     topWords
 
-    let colors: Set = ["red", "orange", "blue", "green", "yellow", "indigo", "violet", "black", "white", "gold"]
-    let topColors = gatsbyCounter.topFilteredWords(7, filter: {(word: String)->Bool in
+    let colors: Set = ["red", "orange", "blue", "green", "yellow", "indigo", "violet", "black", "white", "gold", "silver", "pink", "gray"]
+    let topColors = gatsbyCounter.topFilteredWords(5) {word in
         return colors.contains(word)
-    })
+    }
     topColors
+
+    let topFiveLetterWords = gatsbyCounter.topFilteredWords( 10) { word in
+        return word.count == 5
+    }
+    topFiveLetterWords
 
 } else {
     let testString = "Then wear the gold hat, if that will move her;\n" +

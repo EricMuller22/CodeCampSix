@@ -36,7 +36,7 @@ rsuGrant.value(at: 10, after:.month(48))
 rsuGrant.value(at: 10, after:.month(48))
 rsuGrant.value(at: 10, after:.month(49))
 
-let bonusGrant = StockGrant(shares: 10000, grantDate: fourYears, vestingSchedule: .Instant)
+let bonusGrant = StockGrant(shares: 10000, grantDate: fourYears, vestingSchedule: .instant)
 bonusGrant.value(at: 10, after: .month(0))
 bonusGrant.value(at: 20, after: .month(0))
 bonusGrant.value(at: 20, after: .month(20))
