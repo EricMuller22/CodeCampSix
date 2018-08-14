@@ -1,18 +1,34 @@
 import Foundation
 
 
-public struct WordCounter
+public class WordCounter
 {
-    let wordCounts: NSCountedSet
-    let sortedWordCounts: [String]
-    public let uniqueWords: Int
+    // MARK: - Public Variables
+
+    public lazy var uniqueWords: Int = {
+        return wordCounts.count
+    }()
+
+    // MARK: - Internal Variables
+
+    let text: String
+
+    lazy var wordCounts: NSCountedSet = {
+        return WordCounter.wordCounts(for: text)
+    }()
+
+    lazy var sortedWordCounts: [String] = {
+        return WordCounter.sortedWordCounts(with: wordCounts)
+    }()
+
+    // MARK: - Lifecycle
 
     public init(text: String)
     {
-        wordCounts = WordCounter.wordCounts(for: text)
-        uniqueWords = wordCounts.count
-        sortedWordCounts = WordCounter.sortedWordCounts(with: wordCounts)
+        self.text = text
     }
+
+    // MARK: - Public Methods
 
     public func wordCount(for word: String) -> Int
     {
@@ -38,6 +54,7 @@ public struct WordCounter
     }
 }
 
+// MARK: - Static Helpers
 
 extension WordCounter
 {
